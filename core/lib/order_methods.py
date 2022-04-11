@@ -182,7 +182,9 @@ async def close_order(client: AsyncClient, db: Database, data):
             })
             
     except BinanceAPIException as err:
-        await default_err(err)
+        message = err.message
+
+        await default_err(message)
     except Exception as err:
         await default_err(err)
 

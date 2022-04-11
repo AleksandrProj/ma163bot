@@ -50,19 +50,19 @@ class Bot:
         })
 
     # Get information futures
-    async def get_info_futures(self, symbol):
-        try:
-            for info_contract in self.info_futures:
-                if info_contract['symbol'] == symbol:
-                    for info_contract_filter in info_contract['filters']:
-                        filter_type = info_contract_filter['filterType']
-                        if filter_type == 'PRICE_FILTER':
-                            self.price_tick_size[symbol] = Decimal(info_contract_filter['tickSize'])
-                        elif filter_type == 'LOT_SIZE':
-                            self.price_lot_size[symbol] = Decimal(
-                                info_contract_filter['stepSize']).normalize()
-        except BinanceAPIException as err:
-            await write_log(err.message, symbol=symbol)
+    # async def get_info_futures(self, symbol):
+    #     try:
+    #         for info_contract in self.info_futures:
+    #             if info_contract['symbol'] == symbol:
+    #                 for info_contract_filter in info_contract['filters']:
+    #                     filter_type = info_contract_filter['filterType']
+    #                     if filter_type == 'PRICE_FILTER':
+    #                         self.price_tick_size[symbol] = Decimal(info_contract_filter['tickSize'])
+    #                     elif filter_type == 'LOT_SIZE':
+    #                         self.price_lot_size[symbol] = Decimal(
+    #                             info_contract_filter['stepSize']).normalize()
+    #     except BinanceAPIException as err:
+    #         await write_log(err.message, symbol=symbol)
     
     # MAIN BOT FUNCTIONS 
     def connection_socket(self, symbol):
@@ -121,16 +121,16 @@ class Bot:
 
         print(init_time() + ' Ищем точку входа для ' + symbol)
 
-        await open_order(self.client, self.db, {
-            'symbol': symbol,
-            'type_order': 'SELL',
-            'price_tick': price_tick[symbol],
-            'price_lot': price_lot[symbol],
-            'current_price': price,
-            'moving_averange33': ma33
-        })   
+        # await open_order(self.client, self.db, {
+        #     'symbol': symbol,
+        #     'type_order': 'SELL',
+        #     'price_tick': price_tick[symbol],
+        #     'price_lot': price_lot[symbol],
+        #     'current_price': price,
+        #     'moving_averange33': ma33
+        # })   
 
-        time.sleep(5)
+        # time.sleep(5)
 
         # BUY 
         # if price > ma163:
@@ -324,53 +324,77 @@ class Bot:
                         })  
 
     async def start(self):
-        symbol = 'ANTUSDT'
-
-        self.connection_socket(symbol)
-
         while True:
-            is_open_order = await self.db.check_open_order(symbol)
-            query_used_balance = await self.db.get_used_balance()
-            used_balance = 0 if query_used_balance['used_balance'] is None else query_used_balance['used_balance']
-            minimal_qty_deals = math.floor((Decimal(BUDGET) - used_balance) / MIN_AMOUNT_ORDER)
-
+            list_trade_symbols = []
+            list_open_orders = []
+            minimal_quantity_deals = 0
+            
             print(init_time() + ' - Бот ожидает сделок')
 
-            # topup_order_bnb = await topup_bnb(self.client)
-            await self.get_info_futures(symbol)
+            for info_contract in self.info_futures:
+                trade_symbol = info_contract['symbol']
+                is_open_order = await self.db.check_open_order(trade_symbol)
+                query_used_balance = await self.db.get_used_balance()
+                used_balance = 0 if query_used_balance['used_balance'] is None else query_used_balance['used_balance']
+                minimal_qty_deals = math.floor((Decimal(BUDGET) - used_balance) / MIN_AMOUNT_ORDER)
+                name_stream = str(trade_symbol).lower() + '@aggTrade'
 
-            if is_open_order is None:
-                # Можно торговать
-                if minimal_qty_deals > 0:
-                    await self.start_trade({
-                        'symbol': symbol,
-                        'price': self.current_pricies[symbol],
-                        'price_lot': self.price_lot_size,
-                        'price_tick': self.price_tick_size,
-                    })
+                print(info_contract['symbol'])
+                print(used_balance)
+                print(minimal_qty_deals)
+                print(name_stream)
 
-                # Торговать нельзя, можно только мониторить открытые сделки
-                if minimal_qty_deals < 1:
-                    # Monitoring position order
-                    await self.monitoring_trade({
-                        'symbol': symbol,
-                        'price': self.current_pricies[symbol],
-                        'price_tick': self.price_tick_size,
-                        'order_data': is_open_order
-                    })
-            else:
-                # Monitoring position order
-                await self.monitoring_trade({
-                    'symbol': symbol,
-                    'price': self.current_pricies[symbol],
-                    'price_tick': self.price_tick_size,
-                    'order_data': is_open_order
-                })
+            time.sleep(1)
+        
+
+        # Рабочий код для одной валюты
+        # symbol = 'ANTUSDT'
+
+        # self.connection_socket(symbol)
+
+        # while True:
+        #     is_open_order = await self.db.check_open_order(symbol)
+        #     query_used_balance = await self.db.get_used_balance()
+        #     used_balance = 0 if query_used_balance['used_balance'] is None else query_used_balance['used_balance']
+        #     minimal_qty_deals = math.floor((Decimal(BUDGET) - used_balance) / MIN_AMOUNT_ORDER)
+
+        #     print(init_time() + ' - Бот ожидает сделок')
+
+        #     # topup_order_bnb = await topup_bnb(self.client)
+        #     await self.get_info_futures(symbol)
+
+        #     if is_open_order is None:
+        #         # Можно торговать
+        #         if minimal_qty_deals > 0:
+        #             await self.start_trade({
+        #                 'symbol': symbol,
+        #                 'price': self.current_pricies[symbol],
+        #                 'price_lot': self.price_lot_size,
+        #                 'price_tick': self.price_tick_size,
+        #             })
+
+        #         # Торговать нельзя, можно только мониторить открытые сделки
+        #         if minimal_qty_deals < 1:
+        #             # Monitoring position order
+        #             await self.monitoring_trade({
+        #                 'symbol': symbol,
+        #                 'price': self.current_pricies[symbol],
+        #                 'price_tick': self.price_tick_size,
+        #                 'order_data': is_open_order
+        #             })
+        #     else:
+        #         # Monitoring position order
+        #         await self.monitoring_trade({
+        #             'symbol': symbol,
+        #             'price': self.current_pricies[symbol],
+        #             'price_tick': self.price_tick_size,
+        #             'order_data': is_open_order
+        #         })
 
                 
             # 4 Сделать функцию подписки на сокеты всех доступных символов биржи
             
-            time.sleep(1 * 60 * TIMEOUT_BOT)
+            # time.sleep(1 * 60 * TIMEOUT_BOT)
 
     async def stop(self):
         print('Stopped bot')
